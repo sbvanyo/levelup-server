@@ -15,9 +15,12 @@ class GameView(ViewSet):
         Returns:
             Response -- JSON serialized game
         """
-        game = Game.objects.get(pk=pk)
-        serializer = GameSerializer(game)
-        return Response(serializer.data)
+        try:
+            game = Game.objects.get(pk=pk)
+            serializer = GameSerializer(game)
+            return Response(serializer.data)
+        except Game.DoesNotExist as ex:
+            return Response({'message': ex.args[0]}, status=status.HTTP_404_NOT_FOUND)
 
     def list(self, request):
         """Handle GET requests to get all games
@@ -26,6 +29,11 @@ class GameView(ViewSet):
             Response -- JSON serialized list of games
         """
         games = Game.objects.all()
+        # The 'request' from the method parameters holds all the information for the request from the client. The 'request.query_params' is a dictionary of any query parameters that were in the url. Using the .get method on a dictionary is a safe way to find if a key is present on the dictionary. If the 'type' key is not present on the dictionary it will return None.
+        game_type = request.query_params.get('type', None)
+        if game_type is not None:
+            games = games.filter(game_type_id=game_type)
+        
         serializer = GameSerializer(games, many=True)
         return Response(serializer.data)
 
@@ -37,3 +45,4 @@ class GameSerializer(serializers.ModelSerializer):
     class Meta:
         model = Game
         fields = ('id', 'game_type', 'title', 'maker', 'gamer', 'number_of_players', 'skill_level')
+        depth = 1
