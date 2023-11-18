@@ -10,6 +10,9 @@ from .game_type import GameType
 class GameView(ViewSet):
     """Level up games view"""
     
+    ########################
+    ######## CREATE ########
+    ########################
     
     def create(self, request):
         """Handle POST operations
@@ -31,6 +34,12 @@ class GameView(ViewSet):
         serializer = GameSerializer(game)
         return Response(serializer.data)
 
+
+
+    #######################
+    ######## READ #########
+    #######################
+    
     def retrieve(self, request, pk):
         """Handle GET requests for single game
 
@@ -60,6 +69,31 @@ class GameView(ViewSet):
         return Response(serializer.data)
 
 
+
+    ########################
+    ######## UPDATE ########
+    ########################
+    
+    def update(self, request, pk):
+        """Handle PUT requests for a game
+
+        Returns:
+            Response -- Empty body with 204 status code
+        """
+
+        game = Game.objects.get(pk=pk)
+        game.title = request.data["title"]
+        game.maker = request.data["maker"]
+        game.number_of_players = request.data["numberOfPlayers"]
+        game.skill_level = request.data["skillLevel"]
+
+        game_type = GameType.objects.get(pk=request.data["gameType"])
+        game.game_type = game_type
+        game.save()
+
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+    
 
 class GameSerializer(serializers.ModelSerializer):
     """JSON serializer for game types
