@@ -55,7 +55,7 @@ class EventView(ViewSet):
     def list(self, request):
         """Handle GET requests to get all events
 
-        Returns:
+        Returns: 
             Response -- JSON serialized list of events
         """
         events = Event.objects.all()
@@ -63,6 +63,16 @@ class EventView(ViewSet):
         game = request.query_params.get('game', None)
         if game is not None:
             events = events.filter(game_id=game)
+        
+        # This is how we're going to get the uid from the GET endpoint request. A payload/body should never be included in a GET request. It will generate errors and fail to function as expected. request.META['HTTP_AUTHORIZATION'] retrieves important info that is passed through the headers instead.
+        uid = request.META['HTTP_AUTHORIZATION']
+        gamer = Gamer.objects.get(uid=uid)
+
+        for event in events:
+            # Check to see if there is a row in the Event Games table that has the passed in gamer and event
+            event.joined = len(EventGamer.objects.filter(
+                gamer=gamer, event=event)) > 0
+
         
         serializer = EventSerializer(events, many=True)
         return Response(serializer.data)
@@ -118,8 +128,10 @@ class EventView(ViewSet):
     @action(methods=['post'], detail=True)
     def signup(self, request, pk):
         """Post request for a user to sign up for an event"""
+        
+        uid = request.META['HTTP_AUTHORIZATION']
 
-        gamer = Gamer.objects.get(uid=request.data["userId"])
+        gamer = Gamer.objects.get(uid=uid)
         event = Event.objects.get(pk=pk)
         attendee = EventGamer.objects.create(
             gamer=gamer,
@@ -129,16 +141,14 @@ class EventView(ViewSet):
     
     @action(methods=['delete'], detail=True)
     def leave(self, request, pk):
-        """Delete request for a user to un-sign up for an event"""
-
-        gamer = Gamer.objects.get(uid=request.data["userId"])
+        """Delete request for a user to leave an event"""
+        uid = request.META['HTTP_AUTHORIZATION']
+        gamer = Gamer.objects.get(uid=uid)
         event = Event.objects.get(pk=pk)
-        attendee = EventGamer.objects.get(
-            gamer=gamer,
-            event=event
-        )
-        attendee.delete()
-        return Response({'message': 'Gamer deleted'}, status=status.HTTP_204_NO_CONTENT)
+        eventgamer = EventGamer.objects.filter(gamer_id=gamer, event_id=event)
+        eventgamer.delete()
+        
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
 class EventSerializer(serializers.ModelSerializer):
@@ -146,5 +156,5 @@ class EventSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = Event
-        fields = ('id', 'game', 'description', 'date', 'time', 'organizer')
+        fields = ('id', 'game', 'description', 'date', 'time', 'organizer', 'joined')
         depth = 1
